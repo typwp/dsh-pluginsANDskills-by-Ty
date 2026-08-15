@@ -16,6 +16,7 @@
  * 纯 Node，无第三方依赖（patch YAML 结构规整，用行级解析）。
  */
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 /** 各插件允许迁移的配置键（新版 schema 仍在的）。 */
 const ALLOWED_KEYS = {
@@ -198,7 +199,7 @@ export function main(argv) {
 	return 0;
 }
 
-// 直接运行时走 CLI
-if (import.meta.url === `file://${process.argv[1]?.replace(/\\/g, "/")}`) {
+// 直接运行时走 CLI（pathToFileURL 规范化：处理空格/盘符/反斜杠，Windows 安全）
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
 	process.exit(main(process.argv.slice(2)));
 }

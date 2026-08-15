@@ -1,7 +1,7 @@
-# dsh-plugins 一键部署到 ~/.dsh/plugins/
+﻿# dsh-plugins 一键部署到 ~/.dsh/plugins/
 #
 # 用法：
-#   PowerShell:  .\install.ps1 [-Only notify|context-guard|qq-notify] [-SkipNpmInstall]
+#   PowerShell:  .\install.ps1 [-Only notify|context-guard|qq-notify] [-SkipNpmInstall] [-PluginsRoot <path>]
 #
 # 做什么：
 #   1. 把 packages/<name> 复制到 $HOME/.dsh/plugins/<name>（覆盖前自动备份 .bak）；
@@ -9,16 +9,22 @@
 #   3. 提示重启 harness（update-harness.bat 或手动）。
 #
 # 安全：全程不动运行中的插件文件——复制到目标前先备份，失败可回滚。
+# -PluginsRoot 可指定插件安装根（默认 ~/.dsh/plugins；测试/自定义 profile 用）。
 
 param(
   [ValidateSet('', 'notify', 'context-guard', 'qq-notify')]
   [string]$Only = '',
-  [switch]$SkipNpmInstall
+  [switch]$SkipNpmInstall,
+  [string]$PluginsRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$pluginsRoot = Join-Path $HOME '.dsh\plugins'
+if ($PluginsRoot) {
+  $pluginsRoot = $PluginsRoot
+} else {
+  $pluginsRoot = Join-Path $HOME '.dsh\plugins'
+}
 $names = if ($Only) { @($Only) } else { @('dsh-notify', 'dsh-context-guard', 'dsh-qq-notify') }
 
 if (!(Test-Path $pluginsRoot)) {
