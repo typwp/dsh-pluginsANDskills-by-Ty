@@ -50,6 +50,7 @@ npm install            # 解析 @deepseek-ai/schemastery
 - [dsh-context-guard 说明](packages/dsh-context-guard/README.md)
 - [dsh-qq-notify 说明](packages/dsh-qq-notify/README.md)
 - [设置修改指南](docs/SETTINGS.md)
+- [插件开发指南](docs/DEVELOPMENT.md)
 
 ## License
 
