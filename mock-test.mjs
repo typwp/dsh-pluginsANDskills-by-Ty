@@ -87,6 +87,33 @@ async function loadPlugin(name) {
 	return mod;
 }
 
+// ── 依赖预检：schemastery 需在每个包目录可解析（GitHub clone 后要先 npm install）──
+function checkDeps() {
+	const missing = [];
+	for (const pkg of ["dsh-notify", "dsh-context-guard", "dsh-qq-notify"]) {
+		// 用 createRequire 从包目录解析（尊重 exports）
+		const req = createRequire(new URL(`packages/${pkg}/lib/index.js`, import.meta.url));
+		try {
+			req.resolve("@deepseek-ai/schemastery");
+		} catch {
+			missing.push(pkg);
+		}
+	}
+	if (missing.length) {
+		console.error("");
+		console.error("❌ 依赖未安装：以下插件目录缺少 @deepseek-ai/schemastery：");
+		for (const pkg of missing) console.error(`   - packages/${pkg}`);
+		console.error("");
+		console.error("请先安装依赖再跑测试：");
+		console.error("   npm --prefix packages/dsh-notify install");
+		console.error("   npm --prefix packages/dsh-context-guard install");
+		console.error("   npm --prefix packages/dsh-qq-notify install");
+		console.error("（或直接运行仓库根目录的 install.ps1 自动安装）");
+		process.exit(1);
+	}
+}
+checkDeps();
+
 console.log("== 1. dsh-notify ==");
 {
 	const ctx = makeCtx();

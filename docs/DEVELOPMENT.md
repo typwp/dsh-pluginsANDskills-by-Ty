@@ -122,7 +122,12 @@ ctx.on('internal/service', (name) => { if (name === 'notify') attach() })
 仓库内测试不依赖第三方（纯 Node）：
 
 ```bash
-node mock-test.mjs              # 插件 apply/服务/通道/降级 全链路
+# 首次 clone 后先装依赖（schemastery）
+npm --prefix packages/dsh-notify install
+npm --prefix packages/dsh-context-guard install
+npm --prefix packages/dsh-qq-notify install
+
+node mock-test.mjs              # 插件 apply/服务/通道/降级 全链路（缺依赖时给出清晰提示）
 node test/migrate-config.test.mjs  # 配置迁移边界
 node test/package-audit.mjs     # 发布完整性
 ```
