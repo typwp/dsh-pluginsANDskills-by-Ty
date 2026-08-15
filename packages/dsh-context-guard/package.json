@@ -1,0 +1,35 @@
+{
+  "name": "dsh-context-guard",
+  "version": "0.2.0",
+  "description": "上下文防护：跟踪每会话真实输入（含推理 token），达阈值预警、注入交代后事提醒，并否决注定超限的请求。通知走 ctx.notify（dsh-notify 可选，缺失自动降级日志）。",
+  "type": "module",
+  "main": "lib/index.js",
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@deepseek-ai/schemastery": "3.18.1"
+  },
+  "peerDependencies": {
+    "dsh-notify": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "dsh-notify": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "dsh-qq-notify",
+  "version": "0.2.0",
+  "description": "QQ 适配层（可选）：订阅 dsh-notify 的消息转发到 QQ；保留审批双向、会话监控/命名、/hn 命令。不装此插件不影响 dsh-context-guard 等核心功能。",
+  "type": "module",
+  "main": "lib/index.js",
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@deepseek-ai/schemastery": "3.18.1"
+  },
+  "peerDependencies": {
+    "dsh-notify": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "dsh-notify": {
+      "optional": true
+    }
+  }
+}
