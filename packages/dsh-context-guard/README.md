@@ -28,7 +28,7 @@ UI 上下文分项漏算推理 token，且不预留输出预算；输入 ~75% �
 
 ## 通知链路
 
-```
+```text
 context-guard ── ctx.notify.send() ──▶ dsh-notify 分发
                                         ├─ toast（Web UI）
                                         ├─ webhook（任意 HTTP 服务）
