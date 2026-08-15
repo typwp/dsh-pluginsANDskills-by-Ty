@@ -9,18 +9,13 @@
  * 作为启动默认值（settings 层仍可覆盖）。已知键白名单过滤，
  * 避免把新版已删除的键（如 context-guard 的 targetQq）写进去。
  *
- * 用法：node scripts/migrate-config.mjs <old-patch.yml> <new-patch.yml> <plugin-name>
- * 输出：迁移后的新 patch 内容写回 new-patch.yml（原文件备份 .migrate.bak）。
+ * 双形态：
+ *   - CLI：node scripts/migrate-config.mjs <old-patch.yml> <new-patch.yml> <plugin-name>
+ *   - 模块：import { migratePatch } from './migrate-config.mjs'（测试/复用）
  *
  * 纯 Node，无第三方依赖（patch YAML 结构规整，用行级解析）。
  */
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs'
-
-const [, , oldPath, newPath, pluginName] = process.argv
-if (!oldPath || !newPath || !pluginName) {
-  console.error('用法: node scripts/migrate-config.mjs <old-patch.yml> <new-patch.yml> <plugin-name>')
-  process.exit(1)
-}
 
 /** 各插件允许迁移的配置键（新版 schema 仍在的）。 */
 const ALLOWED_KEYS = {
@@ -29,7 +24,7 @@ const ALLOWED_KEYS = {
   'dsh-notify': new Set(['enabled', 'channels', 'webhookUrl', 'webhookHeaders', 'filePath', 'toastBufferSize']),
 }
 
-function parsePatchConfig(text, targetName) {
+export function parsePatchConfig(text, targetName) {
   // 找到 `name: <targetName>` 所在 insert 项，提取其 config 块（缩进 map）
   const lines = text.split('\n')
   const nameRe = new RegExp(`^\\s*name:\\s*['"]?${targetName}['"]?\\s*$`)
@@ -47,7 +42,7 @@ function parsePatchConfig(text, targetName) {
     // 遇到缩进 <= name 行缩进的非空行 → 已离开该项
     const nm = /^(\s*)\S/.exec(lines[i])
     if (nm && !lines[i].trim().startsWith('#')) {
-      const nameIndent = (nameRe.exec(lines[nameIdx]) ? /^\s*/.exec(lines[nameIdx])[0].length : 2)
+      const nameIndent = /^\s*/.exec(lines[nameIdx])[0].length
       if (nm[1].length <= nameIndent) break
     }
   }
@@ -98,24 +93,60 @@ function yamlScalar(val) {
   return `'${s.replace(/'/g, "''")}'`
 }
 
-// ── 执行 ──
-if (!existsSync(oldPath)) { console.log(`[migrate] 无旧 patch（${oldPath}），跳过`); process.exit(0) }
-const oldText = readFileSync(oldPath, 'utf8')
-let newText = readFileSync(newPath, 'utf8')
-const cfg = parsePatchConfig(oldText, pluginName)
-if (!cfg) { console.log(`[migrate] 旧 patch 无 config（${pluginName}），无需迁移`); process.exit(0) }
+/**
+ * 纯函数：迁移旧 patch 文本到新 patch 文本。
+ * @param {string} oldText - 旧 patch 内容
+ * @param {string} newText - 新 patch 内容
+ * @param {string} pluginName - 插件名（决定白名单）
+ * @returns {{ ok: boolean, text?: string, skipped?: string, dropped?: string[] }}
+ */
+export function migrateText(oldText, newText, pluginName) {
+  const cfg = parsePatchConfig(oldText, pluginName)
+  if (!cfg) return { ok: false, skipped: '旧 patch 无 config 或未找到 name' }
 
-const allowed = ALLOWED_KEYS[pluginName] ?? new Set()
-const filtered = {}
-for (const [k, v] of Object.entries(cfg)) {
-  if (allowed.has(k)) filtered[k] = v
-  else console.log(`[migrate] 丢弃已移除的键: ${k}（${pluginName} 新版不再使用）`)
+  const allowed = ALLOWED_KEYS[pluginName] ?? new Set()
+  const dropped = []
+  const filtered = {}
+  for (const [k, v] of Object.entries(cfg)) {
+    if (allowed.has(k)) filtered[k] = v
+    else dropped.push(k)
+  }
+  if (!Object.keys(filtered).length) return { ok: false, skipped: '无可迁移键', dropped }
+
+  return { ok: true, text: injectConfig(newText, pluginName, filtered), dropped }
 }
-if (!Object.keys(filtered).length) { console.log('[migrate] 无可迁移键，跳过'); process.exit(0) }
 
-const bak = newPath + '.migrate.bak'
-renameSync(newPath, bak)
-newText = injectConfig(newText, pluginName, filtered)
-writeFileSync(newPath, newText, 'utf8')
-console.log(`[migrate] ✅ 已迁移 ${Object.keys(filtered).length} 个配置键到 ${newPath}`)
-console.log(`[migrate]    原文件备份: ${bak}`)
+/**
+ * CLI 入口：读写文件。node scripts/migrate-config.mjs <old> <new> <plugin>
+ * @returns {number} 退出码
+ */
+export function main(argv) {
+  const [oldPath, newPath, pluginName] = argv
+  if (!oldPath || !newPath || !pluginName) {
+    console.error('用法: node scripts/migrate-config.mjs <old-patch.yml> <new-patch.yml> <plugin-name>')
+    return 1
+  }
+  if (!existsSync(oldPath)) { console.log(`[migrate] 无旧 patch（${oldPath}），跳过`); return 0 }
+  const oldText = readFileSync(oldPath, 'utf8')
+  const newText = readFileSync(newPath, 'utf8')
+  const result = migrateText(oldText, newText, pluginName)
+  if (!result.ok) {
+    if (result.dropped?.length) {
+      for (const k of result.dropped) console.log(`[migrate] 丢弃已移除的键: ${k}（${pluginName} 新版不再使用）`)
+    }
+    console.log(`[migrate] ${result.skipped}（${pluginName}），无需迁移`)
+    return 0
+  }
+  for (const k of result.dropped) console.log(`[migrate] 丢弃已移除的键: ${k}（${pluginName} 新版不再使用）`)
+  const bak = newPath + '.migrate.bak'
+  renameSync(newPath, bak)
+  writeFileSync(newPath, result.text, 'utf8')
+  console.log(`[migrate] ✅ 已迁移配置键到 ${newPath}`)
+  console.log(`[migrate]    原文件备份: ${bak}`)
+  return 0
+}
+
+// 直接运行时走 CLI
+if (import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}`) {
+  process.exit(main(process.argv.slice(2)))
+}
