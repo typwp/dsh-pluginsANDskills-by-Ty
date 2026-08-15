@@ -34,15 +34,42 @@ foreach ($name in $names) {
   $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
   # 备份现有（若存在）
+  $oldPatch = $null
   if (Test-Path $dst) {
     $bak = "$dst.bak-$stamp"
     Copy-Item -Recurse -Force $dst $bak
     Write-Host "📦 已备份现有 → $bak" -ForegroundColor Yellow
+    # 记录旧 patch（用于配置迁移）
+    $oldPatch = Join-Path $dst 'cordis.patch.yml'
+    if (!(Test-Path $oldPatch)) { $oldPatch = $null }
   }
 
-  # 复制新版本（先清空目标避免残留旧文件）
+  # 复制新版本到临时位置（先清空目标避免残留旧文件）
+  $tmp = Join-Path $env:TEMP "dsh-plugins-$name-$stamp"
+  if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
+  Copy-Item -Recurse $src $tmp
+
+  # 配置迁移：把旧 patch 的 config（targetQq/bridgeUrl 等）合并进新 patch，
+  # 避免升级后丢用户配置（context-guard 已删除的键自动剔除）
+  if ($oldPatch -and (Get-Command node -ErrorAction SilentlyContinue)) {
+    $newPatch = Join-Path $tmp 'cordis.patch.yml'
+    if (Test-Path $newPatch) {
+      Push-Location $repoRoot
+      try {
+        node scripts/migrate-config.mjs $oldPatch $newPatch $name
+      } catch {
+        Write-Host "   ⚠ 配置迁移失败（继续部署，配置请手动在 Web UI 填写）: $($_.Exception.Message)" -ForegroundColor Yellow
+      } finally {
+        Pop-Location
+      }
+    }
+  } elseif ($oldPatch) {
+    Write-Host "   ⚠ 未找到 node，跳过配置迁移（配置请手动在 Web UI 填写）" -ForegroundColor Yellow
+  }
+
   if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
-  Copy-Item -Recurse $src $dst
+  Copy-Item -Recurse $tmp $dst
+  Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
   Write-Host "✅ 已部署 $name → $dst" -ForegroundColor Green
 
   # npm install（解析 schemastery）
