@@ -27,6 +27,8 @@ await notify?.send('警告', { level: 'warn', channels: ['toast', 'qq'] })
 
 ## 设置（Web UI → 插件配置 → dsh-notify）
 
+修改方法见 [设置修改指南](../docs/SETTINGS.md)。
+
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
 | `enabled` | `true` | 总开关 |

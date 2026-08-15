@@ -14,6 +14,8 @@ DeepSeek Harness QQ 适配层（**可选**插件）。把通用通知接到 QQ�
 
 ## 设置（Web UI → 插件配置 → qq-notify）
 
+修改方法见 [设置修改指南](../docs/SETTINGS.md)（含 QQ `/hn` 命令用法）。
+
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
 | `targetQq` | `''` | 目标 QQ 号（必填才启用 bridge） |

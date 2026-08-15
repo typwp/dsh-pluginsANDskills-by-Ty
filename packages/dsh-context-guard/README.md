@@ -15,6 +15,8 @@ UI 上下文分项漏算推理 token，且不预留输出预算；输入 ~75% �
 
 ## 设置（Web UI → 插件配置 → context-guard）
 
+修改方法见 [设置修改指南](../docs/SETTINGS.md)。
+
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
 | `enabled` | `true` | 总开关 |
