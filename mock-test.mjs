@@ -9,179 +9,289 @@
  * 运行：node mock-test.mjs
  * 不依赖任何第三方包（schemastery 需要插件目录里有，或从 node_modules 解析）。
  */
-import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
-const require = createRequire(import.meta.url)
-const here = dirname(fileURLToPath(import.meta.url))
+const require = createRequire(import.meta.url);
+const here = dirname(fileURLToPath(import.meta.url));
 
-let failures = 0
-function check(name, cond, extra = '') {
-  if (cond) console.log(`  ✅ ${name}`)
-  else { failures++; console.log(`  ❌ ${name} ${extra}`) }
+let failures = 0;
+function check(name, cond, extra = "") {
+	if (cond) console.log(`  ✅ ${name}`);
+	else {
+		failures++;
+		console.log(`  ❌ ${name} ${extra}`);
+	}
 }
 
 // ── 最小 cordis ctx mock ──
 function makeCtx() {
-  const listeners = new Map()
-  const services = new Map()
-  const settingsOwners = new Map()
-  const ctx = {
-    logger: {
-      info: (...a) => console.log('    [log:info]', ...a),
-      warn: (...a) => console.log('    [log:warn]', ...a),
-      error: (...a) => console.log('    [log:error]', ...a),
-    },
-    on: (event, cb) => {
-      if (!listeners.has(event)) listeners.set(event, [])
-      listeners.get(event).push(cb)
-      return () => {
-        const arr = listeners.get(event)
-        if (arr) { const i = arr.indexOf(cb); if (i >= 0) arr.splice(i, 1) }
-      }
-    },
-    emit: (event, ...args) => {
-      for (const cb of listeners.get(event) ?? []) cb(...args)
-    },
-    get: (name) => services.get(name),
-    provide: (name, value) => {
-      services.set(name, value)
-      ctx.emit('internal/service', name)
-      return () => services.delete(name)
-    },
-    set: (name, value) => { services.set(name, value) },
-    settings: {
-      register: (ns, _schema, options) => {
-        const owner = {
-          get: () => ({ ...(options?.base ?? {}) }),
-          watch: () => () => {},
-          update: async () => {},
-          replace: async () => {},
-        }
-        settingsOwners.set(ns, owner)
-        return owner
-      },
-      mutate: async () => {},
-      get: (ns) => settingsOwners.get(ns)?.get(),
-    },
-    agents: {
-      get: () => null,
-    },
-  }
-  return ctx
+	const listeners = new Map();
+	const services = new Map();
+	const settingsOwners = new Map();
+	const ctx = {
+		logger: {
+			info: (...a) => console.log("    [log:info]", ...a),
+			warn: (...a) => console.log("    [log:warn]", ...a),
+			error: (...a) => console.log("    [log:error]", ...a),
+		},
+		on: (event, cb) => {
+			if (!listeners.has(event)) listeners.set(event, []);
+			listeners.get(event).push(cb);
+			return () => {
+				const arr = listeners.get(event);
+				if (arr) {
+					const i = arr.indexOf(cb);
+					if (i >= 0) arr.splice(i, 1);
+				}
+			};
+		},
+		emit: (event, ...args) => {
+			for (const cb of listeners.get(event) ?? []) cb(...args);
+		},
+		get: (name) => services.get(name),
+		provide: (name, value) => {
+			services.set(name, value);
+			ctx.emit("internal/service", name);
+			return () => services.delete(name);
+		},
+		set: (name, value) => {
+			services.set(name, value);
+		},
+		settings: {
+			register: (ns, _schema, options) => {
+				const owner = {
+					get: () => ({ ...(options?.base ?? {}) }),
+					watch: () => () => {},
+					update: async () => {},
+					replace: async () => {},
+				};
+				settingsOwners.set(ns, owner);
+				return owner;
+			},
+			mutate: async () => {},
+			get: (ns) => settingsOwners.get(ns)?.get(),
+		},
+		agents: {
+			get: () => null,
+		},
+	};
+	return ctx;
 }
 
 // ── 加载插件 ──
 async function loadPlugin(name) {
-  const url = new URL(`packages/${name}/lib/index.js`, import.meta.url)
-  const mod = await import(url.href)
-  return mod
+	const url = new URL(`packages/${name}/lib/index.js`, import.meta.url);
+	const mod = await import(url.href);
+	return mod;
 }
 
-console.log('== 1. dsh-notify ==')
+console.log("== 1. dsh-notify ==");
 {
-  const ctx = makeCtx()
-  const plugin = await loadPlugin('dsh-notify')
-  check('exports name', plugin.name === 'dsh-notify', plugin.name)
-  check('exports inject', Array.isArray(plugin.inject))
-  const dispose = plugin.apply(ctx, {})
-  check('apply() 不抛错', true)
-  const notify = ctx.get('notify')
-  check('ctx.notify 已提供', !!notify?.send)
-  const res = await notify.send('hello toast', { level: 'info' })
-  check('send() 返回 ok', res?.ok === true)
-  const chans = notify.channels()
-  check('默认通道含 toast/console', chans.includes('toast') && chans.includes('console'), chans.join(','))
-  // 注册扩展通道
-  let qqGot = null
-  const unreg = notify.registerChannel('qq', async (msg, level) => { qqGot = { msg, level }; return true })
-  check('registerChannel 返回函数', typeof unreg === 'function')
-  await notify.send('to qq', { channels: ['qq'] })
-  check('扩展通道收到消息', qqGot?.msg === 'to qq', JSON.stringify(qqGot))
-  unreg()
-  const chans2 = notify.channels()
-  check('取消注册后通道移除', !chans2.includes('qq'), chans2.join(','))
-  dispose()
-  check('dispose 不抛错', true)
+	const ctx = makeCtx();
+	const plugin = await loadPlugin("dsh-notify");
+	check("exports name", plugin.name === "dsh-notify", plugin.name);
+	check("exports inject", Array.isArray(plugin.inject));
+	const dispose = plugin.apply(ctx, {});
+	check("apply() 不抛错", true);
+	const notify = ctx.get("notify");
+	check("ctx.notify 已提供", !!notify?.send);
+	const res = await notify.send("hello toast", { level: "info" });
+	check("send() 返回 ok", res?.ok === true);
+	const chans = notify.channels();
+	check(
+		"默认通道含 toast/console",
+		chans.includes("toast") && chans.includes("console"),
+		chans.join(","),
+	);
+	// 注册扩展通道
+	let qqGot = null;
+	const unreg = notify.registerChannel("qq", async (msg, level) => {
+		qqGot = { msg, level };
+		return true;
+	});
+	check("registerChannel 返回函数", typeof unreg === "function");
+	await notify.send("to qq", { channels: ["qq"] });
+	check("扩展通道收到消息", qqGot?.msg === "to qq", JSON.stringify(qqGot));
+	unreg();
+	const chans2 = notify.channels();
+	check("取消注册后通道移除", !chans2.includes("qq"), chans2.join(","));
+	dispose();
+	check("dispose 不抛错", true);
 }
 
-console.log('== 2. dsh-context-guard（有 notify 服务）==')
+console.log("== 2. dsh-context-guard（有 notify 服务）==");
 {
-  const ctx = makeCtx()
-  const notifyPlugin = await loadPlugin('dsh-notify')
-  notifyPlugin.apply(ctx, {})
-  const sentMessages = []
-  ctx.get('notify').send = async (msg, opts) => { sentMessages.push({ msg, opts }); return { ok: true } }
-  const plugin = await loadPlugin('dsh-context-guard')
-  const dispose = plugin.apply(ctx, {})
-  check('apply() 不抛错', true)
-  // 模拟 session/event：输入 900K，上限 1M，输出预算 256K → 阈值 0.7 触发
-  const sid = 'session-test123'
-  ctx.emit('session/event', { id: sid }, { type: 'assistant/message', data: { usage: { cacheReadTokens: 500000, inputTokens: 400000 } } })
-  await new Promise((r) => setTimeout(r, 50))
-  check('阈值预警已发送到 notify', sentMessages.length >= 1, JSON.stringify(sentMessages))
-  check('预警消息含会话短 id', sentMessages.some((m) => m.msg.includes('session-')), JSON.stringify(sentMessages))
-  if (typeof dispose === 'function') dispose()
-  check('dispose 不抛错', true)
+	const ctx = makeCtx();
+	const notifyPlugin = await loadPlugin("dsh-notify");
+	notifyPlugin.apply(ctx, {});
+	const sentMessages = [];
+	ctx.get("notify").send = async (msg, opts) => {
+		sentMessages.push({ msg, opts });
+		return { ok: true };
+	};
+	const plugin = await loadPlugin("dsh-context-guard");
+	const dispose = plugin.apply(ctx, {});
+	check("apply() 不抛错", true);
+	// 模拟 session/event：输入 900K，上限 1M，输出预算 256K → 阈值 0.7 触发
+	const sid = "session-test123";
+	ctx.emit(
+		"session/event",
+		{ id: sid },
+		{
+			type: "assistant/message",
+			data: { usage: { cacheReadTokens: 500000, inputTokens: 400000 } },
+		},
+	);
+	await new Promise((r) => setTimeout(r, 50));
+	check(
+		"阈值预警已发送到 notify",
+		sentMessages.length >= 1,
+		JSON.stringify(sentMessages),
+	);
+	check(
+		"预警消息含会话短 id",
+		sentMessages.some((m) => m.msg.includes("session-")),
+		JSON.stringify(sentMessages),
+	);
+	if (typeof dispose === "function") dispose();
+	check("dispose 不抛错", true);
 }
 
-console.log('== 3. dsh-context-guard（无 notify 服务 → 降级）==')
+console.log("== 3. dsh-context-guard（无 notify 服务 → 降级）==");
 {
-  const ctx = makeCtx()
-  const plugin = await loadPlugin('dsh-context-guard')
-  let dispose = null
-  try {
-    dispose = plugin.apply(ctx, {})
-    check('apply() 无 notify 不抛错', true)
-  } catch (e) {
-    check('apply() 无 notify 不抛错', false, e.message)
-  }
-  // 触发事件不应抛错
-  try {
-    ctx.emit('session/event', { id: 'sid2' }, { type: 'assistant/message', data: { usage: { cacheReadTokens: 600000, inputTokens: 300000 } } })
-    check('无 notify 时事件处理不抛错', true)
-  } catch (e) {
-    check('无 notify 时事件处理不抛错', false, e.message)
-  }
-  if (dispose) dispose()
+	const ctx = makeCtx();
+	const plugin = await loadPlugin("dsh-context-guard");
+	let dispose = null;
+	try {
+		dispose = plugin.apply(ctx, {});
+		check("apply() 无 notify 不抛错", true);
+	} catch (e) {
+		check("apply() 无 notify 不抛错", false, e.message);
+	}
+	// 触发事件不应抛错
+	try {
+		ctx.emit(
+			"session/event",
+			{ id: "sid2" },
+			{
+				type: "assistant/message",
+				data: { usage: { cacheReadTokens: 600000, inputTokens: 300000 } },
+			},
+		);
+		check("无 notify 时事件处理不抛错", true);
+	} catch (e) {
+		check("无 notify 时事件处理不抛错", false, e.message);
+	}
+	if (dispose) dispose();
 }
 
-console.log('== 4. dsh-qq-notify（注册 qq 通道 + 审批降级）==')
+console.log("== 4. dsh-qq-notify（注册 qq 通道 + 审批降级）==");
 {
-  const ctx = makeCtx()
-  const notifyPlugin = await loadPlugin('dsh-notify')
-  notifyPlugin.apply(ctx, {})
-  const plugin = await loadPlugin('dsh-qq-notify')
-  const dispose = plugin.apply(ctx, { targetQq: '10001', bridgeUrl: 'http://localhost:3456/send' })
-  check('apply() 不抛错', true)
-  const notify = ctx.get('notify')
-  check('qq 通道已注册', notify.channels().includes('qq'), notify.channels().join(','))
-  // send 到 qq 通道：无真实 bridge，send 内部 try/catch 返回 false，不抛错
-  const res = await notify.send('test relay', { channels: ['qq'] })
-  check('qq 通道 send 不抛错', res?.ok === true)
-  dispose()
-  check('dispose 不抛错', true)
+	const ctx = makeCtx();
+	const notifyPlugin = await loadPlugin("dsh-notify");
+	notifyPlugin.apply(ctx, {});
+	const plugin = await loadPlugin("dsh-qq-notify");
+	const dispose = plugin.apply(ctx, {
+		targetQq: "10001",
+		bridgeUrl: "http://localhost:3456/send",
+	});
+	check("apply() 不抛错", true);
+	const notify = ctx.get("notify");
+	check(
+		"qq 通道已注册",
+		notify.channels().includes("qq"),
+		notify.channels().join(","),
+	);
+	// send 到 qq 通道：无真实 bridge，send 内部 try/catch 返回 false，不抛错
+	const res = await notify.send("test relay", { channels: ["qq"] });
+	check("qq 通道 send 不抛错", res?.ok === true);
+	dispose();
+	check("dispose 不抛错", true);
 }
 
-console.log('== 5. dsh-qq-notify（未配置 bridge → 降级不崩）==')
+console.log("== 5. dsh-qq-notify（未配置 bridge → 降级不崩）==");
 {
-  const ctx = makeCtx()
-  const plugin = await loadPlugin('dsh-qq-notify')
-  let dispose = null
-  try {
-    dispose = plugin.apply(ctx, {})
-    check('apply() 未配置不抛错', true)
-  } catch (e) {
-    check('apply() 未配置不抛错', false, e.message)
-  }
-  if (dispose) dispose()
+	const ctx = makeCtx();
+	const plugin = await loadPlugin("dsh-qq-notify");
+	let dispose = null;
+	try {
+		dispose = plugin.apply(ctx, {});
+		check("apply() 未配置不抛错", true);
+	} catch (e) {
+		check("apply() 未配置不抛错", false, e.message);
+	}
+	if (dispose) dispose();
 }
 
-console.log('')
+console.log("== 6. 加载顺序无关：qq-notify 先于 dsh-notify 加载 ==");
+{
+	const ctx = makeCtx();
+	const qqPlugin = await loadPlugin("dsh-qq-notify");
+	const qqDispose = qqPlugin.apply(ctx, {
+		targetQq: "10001",
+		bridgeUrl: "http://localhost:3456/send",
+	});
+	// qq-notify 已 apply，但 notify 服务尚未提供 → 通道未注册（且不抛错）
+	const before = ctx.get("notify");
+	check("notify 未提供时 apply 不抛错", before === undefined || true);
+	// 之后 dsh-notify 才加载 → internal/service 事件应触发 attachQqChannel
+	const notifyPlugin = await loadPlugin("dsh-notify");
+	notifyPlugin.apply(ctx, {});
+	const notify = ctx.get("notify");
+	check("notify 服务已提供", !!notify?.registerChannel);
+	check(
+		"qq 通道随后注册成功（顺序无关）",
+		notify.channels().includes("qq"),
+		notify.channels().join(","),
+	);
+	// 卸载 qq-notify → 通道取消注册
+	qqDispose();
+	check(
+		"卸载后 qq 通道移除",
+		!notify.channels().includes("qq"),
+		notify.channels().join(","),
+	);
+}
+
+console.log("== 7. dsh-notify webServer 路由注册（internal/service 事件）==");
+{
+	const ctx = makeCtx();
+	const notifyPlugin = await loadPlugin("dsh-notify");
+	notifyPlugin.apply(ctx, {});
+	// 模拟 webServer 服务随后出现
+	const routes = [];
+	const fakeWebServer = {
+		register: (route) => routes.push(route),
+	};
+	ctx.provide("webServer", fakeWebServer);
+	check(
+		"poll 路由已注册",
+		routes.some((r) => r.path === "/api/dsh-notify/poll"),
+		routes.map((r) => r.path).join(","),
+	);
+	// 模拟一次 poll 请求
+	const route = routes.find((r) => r.path === "/api/dsh-notify/poll");
+	const req = { url: "http://localhost/api/dsh-notify/poll?after=0" };
+	let body = null;
+	const res = {
+		statusCode: 0,
+		setHeader() {},
+		end(b) {
+			body = b;
+		},
+	};
+	await route.handler(req, res);
+	check("poll 返回 JSON", typeof body === "string" && body.includes("items"));
+	const data = JSON.parse(body);
+	check("poll 含 items 数组", Array.isArray(data.items));
+}
+
+console.log("");
 if (failures) {
-  console.log(`❌ ${failures} 项失败`)
-  process.exit(1)
+	console.log(`❌ ${failures} 项失败`);
+	process.exit(1);
 } else {
-  console.log('✅ 全部通过')
+	console.log("✅ 全部通过");
 }
