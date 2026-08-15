@@ -43,6 +43,15 @@ npm install            # 解析 @deepseek-ai/schemastery
 
 迁移规则：白名单保留仍有效的键（如 qq-notify 的 `targetQq`/`bridgeUrl`/`decisionsFilePath`），自动剔除新版已删除的键（如 context-guard 的 `targetQq`——它已移入 qq-notify）。
 
+## 可选 Agent 技能
+
+仓库附带两个 DSH Agent 技能（按需复制到 `~/.dsh/skills/`）：
+
+- [`handover`](skills/handover/SKILL.md)：配合 dsh-context-guard 的「交代后事」提醒，自动写交接文档、沉淀踩坑经验；
+- [`qq-notify`](skills/qq-notify/SKILL.md)：让 Agent 主动给 QQ 发消息（使用前需在文件内填入自己的 bridge 地址与 QQ 号）。
+
+安装说明见 [skills/README.md](skills/README.md)。
+
 ## 文档
 
 - [架构说明](ARCHITECTURE.md)

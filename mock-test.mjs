@@ -10,11 +10,6 @@
  * 不依赖任何第三方包（schemastery 需要插件目录里有，或从 node_modules 解析）。
  */
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-
-const require = createRequire(import.meta.url);
-const here = dirname(fileURLToPath(import.meta.url));
 
 let failures = 0;
 function check(name, cond, extra = "") {
@@ -313,8 +308,13 @@ console.log("== 7. dsh-notify webServer 路由注册（internal/service 事件�
 	};
 	await route.handler(req, res);
 	check("poll 返回 JSON", typeof body === "string" && body.includes("items"));
-	const data = JSON.parse(body);
-	check("poll 含 items 数组", Array.isArray(data.items));
+	let data = null;
+	try {
+		data = JSON.parse(body);
+	} catch {
+		check("poll JSON 可解析", false, String(body));
+	}
+	check("poll 含 items 数组", Array.isArray(data?.items));
 }
 
 console.log("");

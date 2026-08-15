@@ -111,6 +111,13 @@ export function apply(ctx, config = {}) {
 			!handoverNotified.has(sid)
 		) {
 			handoverNotified.add(sid);
+			if (handoverNotified.size > 100) {
+				for (const k of [...handoverNotified.keys()].slice(
+					0,
+					handoverNotified.size - 50,
+				))
+					handoverNotified.delete(k);
+			}
 			const msg = `⚠️ 上下文危险：真实输入含推理已达 ${Math.round(pct * 100)}%（${input} / 上限 ${limit}）。建议执行「交代后事」：写未完待办与已完成事项、踩坑经验写入跨会话记忆，为下一个对话窗口交接。`;
 			notify(`📦 ${msg}`);
 			try {

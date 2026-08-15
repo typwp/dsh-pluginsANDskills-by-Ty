@@ -51,6 +51,7 @@ export function apply(ctx, config = {}) {
 	settingsOwner.watch((next) => {
 		cfg = { ...base, ...next };
 		ctx.logger.info(`[qq-notify] 设置已更新: ${JSON.stringify(cfg)}`);
+		syncPolling();
 	});
 
 	// 桥接可用性：bridgeUrl + targetQq 都配置才视为启用；否则降级日志
@@ -58,13 +59,12 @@ export function apply(ctx, config = {}) {
 		return Boolean(cfg.bridgeUrl && cfg.targetQq);
 	}
 
-	const decisionsFile = cfg.decisionsFilePath;
-	const tokenPrefix = cfg.tokenPrefix;
 	const toolTurns = new Map();
 	const key = (sid, turn) => sid + ":" + turn;
 	const pendingApprovals = new Map();
 	let decisionsOffset = 0;
 	let pollTimer = null;
+	let pollPath = "";
 
 	// 会话是否被监控（空列表=监控全部；支持短 id 前缀匹配）
 	function isMonitored(sid) {
@@ -125,6 +125,7 @@ export function apply(ctx, config = {}) {
 	}
 
 	function pollDecisions() {
+		const decisionsFile = cfg.decisionsFilePath;
 		if (!decisionsFile) return;
 		try {
 			const stat = statSync(decisionsFile);
@@ -149,7 +150,9 @@ export function apply(ctx, config = {}) {
 							send(`📊 Harness 通知设置\n${summarize()}`);
 						} else if (rec.action === "set") {
 							try {
-								ctx.settings.mutate("qq-notify", { [rec.key]: rec.value });
+								ctx.settings.mutate("qq-notify", [
+									{ op: "set", path: [rec.key], value: rec.value },
+								]);
 								send(`✅ 已更新 ${rec.key} = ${rec.value}\n${summarize()}`);
 							} catch (e) {
 								send(`❌ 设置更新失败: ${e.message}`);
@@ -157,14 +160,20 @@ export function apply(ctx, config = {}) {
 						} else if (rec.action === "monitor-add") {
 							const cur = [...(cfg.monitoredSessions ?? [])];
 							if (!cur.includes(rec.id)) cur.push(rec.id);
-							const patch = { monitoredSessions: cur };
+							const ops = [
+								{ op: "set", path: ["monitoredSessions"], value: cur },
+							];
 							if (rec.name)
-								patch.sessionNames = {
-									...(cfg.sessionNames ?? {}),
-									[rec.id]: rec.name,
-								};
+								ops.push({
+									op: "set",
+									path: ["sessionNames"],
+									value: {
+										...(cfg.sessionNames ?? {}),
+										[rec.id]: rec.name,
+									},
+								});
 							try {
-								ctx.settings.mutate("qq-notify", patch);
+								ctx.settings.mutate("qq-notify", ops);
 								send(
 									`✅ 已监控会话 ${rec.id}${rec.name ? `（${rec.name}）` : ""}`,
 								);
@@ -176,26 +185,34 @@ export function apply(ctx, config = {}) {
 								(x) => x !== rec.id,
 							);
 							try {
-								ctx.settings.mutate("qq-notify", { monitoredSessions: cur });
+								ctx.settings.mutate("qq-notify", [
+									{ op: "set", path: ["monitoredSessions"], value: cur },
+								]);
 								send(`✅ 已取消监控会话 ${rec.id}`);
 							} catch (e) {
 								send(`❌ 监控设置失败: ${e.message}`);
 							}
 						} else if (rec.action === "monitor-clear") {
 							try {
-								ctx.settings.mutate("qq-notify", { monitoredSessions: [] });
+								ctx.settings.mutate("qq-notify", [
+									{ op: "set", path: ["monitoredSessions"], value: [] },
+								]);
 								send(`✅ 已恢复监控全部会话`);
 							} catch (e) {
 								send(`❌ 监控设置失败: ${e.message}`);
 							}
 						} else if (rec.action === "name-set") {
 							try {
-								ctx.settings.mutate("qq-notify", {
-									sessionNames: {
-										...(cfg.sessionNames ?? {}),
-										[rec.id]: rec.name,
+								ctx.settings.mutate("qq-notify", [
+									{
+										op: "set",
+										path: ["sessionNames"],
+										value: {
+											...(cfg.sessionNames ?? {}),
+											[rec.id]: rec.name,
+										},
 									},
-								});
+								]);
 								send(`✅ 会话 ${rec.id} 已命名：${rec.name}`);
 							} catch (e) {
 								send(`❌ 命名失败: ${e.message}`);
@@ -205,6 +222,28 @@ export function apply(ctx, config = {}) {
 				} catch {}
 			}
 		} catch {}
+	}
+
+	/**
+	 * 按 cfg.decisionsFilePath 启停轮询：设置热更新后能挂载新路径，
+	 * 新路径从文件末尾开始读取，避免重放历史 decisions。
+	 */
+	function syncPolling() {
+		const file = cfg.decisionsFilePath;
+		if (file === pollPath) return;
+		if (pollTimer) {
+			clearInterval(pollTimer);
+			pollTimer = null;
+		}
+		pollPath = file;
+		if (!file) return;
+		try {
+			decisionsOffset = statSync(file).size;
+		} catch {
+			decisionsOffset = 0;
+		}
+		pollTimer = setInterval(pollDecisions, 1000);
+		pollTimer.unref?.();
 	}
 
 	function waitDecision(token, timeoutMs) {
@@ -256,7 +295,7 @@ export function apply(ctx, config = {}) {
 			if (req.signal?.aborted === true) return "cancelled";
 			const sessionId = req.agent?.session?.id ?? "?";
 			if (!isMonitored(sessionId)) return next(); // 未监控会话：QQ 不打扰，GUI 正常
-			const token = tokenPrefix + randomBytes(6).toString("hex");
+			const token = cfg.tokenPrefix + randomBytes(6).toString("hex");
 			const lines = [
 				`🔔 Harness 需要权限确认（${token}）`,
 				`会话: ${sessionLabel(sessionId)}`,
@@ -344,19 +383,20 @@ export function apply(ctx, config = {}) {
 						`✅ Harness 任务完成\n会话: ${sessionLabel(sid)}\n回合: ${data.turn}${hasTool ? "" : "（纯对话）"}`,
 					);
 				}
-			} else if (type === "session/disposed") {
-				for (const k of [...toolTurns.keys()])
-					if (k.startsWith(sid + ":")) toolTurns.delete(k);
 			}
 		} catch (e) {
 			ctx.logger.warn(`[qq-notify] 处理事件异常: ${e.message}`);
 		}
 	});
 
-	if (decisionsFile) {
-		pollTimer = setInterval(pollDecisions, 1000);
-		pollTimer.unref?.();
-	}
+	// 会话销毁时清理该会话的 toolTurns 记录，避免长期运行后残留。
+	ctx.on("session/disposed", (session) => {
+		const sid = session?.id ?? "?";
+		for (const k of [...toolTurns.keys()])
+			if (k.startsWith(sid + ":")) toolTurns.delete(k);
+	});
+
+	syncPolling();
 
 	// 暴露显式 QQ 发送能力给其他插件：ctx.qqNotify.send(message)
 	const qqService = { send, bridgeEnabled };
