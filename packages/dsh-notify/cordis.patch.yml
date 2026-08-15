@@ -1,3 +1,4 @@
+---
 # dsh-notify bundle patch: mount the notify capability seam plugin.
 - insert:
     - id: notify

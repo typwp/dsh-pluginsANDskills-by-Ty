@@ -1,3 +1,4 @@
+---
 # dsh-qq-notify bundle patch: mount the QQ adapter plugin.
 - insert:
     - id: qq-notify

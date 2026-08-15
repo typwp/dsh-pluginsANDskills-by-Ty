@@ -1,3 +1,4 @@
+---
 # dsh-context-guard bundle patch: mount the context guard plugin.
 - insert:
     - id: context-guard

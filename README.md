@@ -30,8 +30,22 @@ npm install            # 解析 @deepseek-ai/schemastery
 
 推荐顺序：`dsh-notify` → `dsh-context-guard` →（可选）`dsh-qq-notify`。
 
+### 升级旧版（v0.1 → v0.2+）
+
+旧版把 `targetQq`/`bridgeUrl`/`decisionsFilePath` 写在 `cordis.patch.yml` 的 `config` 里；新版改为 settings 命名空间（Web UI）管理。直接覆盖会丢配置，请用部署脚本：
+
+```powershell
+# 自动备份旧版 + 迁移旧 config 到新版 patch + npm install
+.\install.ps1
+# 或只部署某个插件
+.\install.ps1 -Only qq-notify
+```
+
+迁移规则：白名单保留仍有效的键（如 qq-notify 的 `targetQq`/`bridgeUrl`/`decisionsFilePath`），自动剔除新版已删除的键（如 context-guard 的 `targetQq`——它已移入 qq-notify）。
+
 ## 文档
 
+- [架构说明](ARCHITECTURE.md)
 - [dsh-notify 说明](packages/dsh-notify/README.md)
 - [dsh-context-guard 说明](packages/dsh-context-guard/README.md)
 - [dsh-qq-notify 说明](packages/dsh-qq-notify/README.md)
