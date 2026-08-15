@@ -92,7 +92,9 @@ function checkDeps() {
 	const missing = [];
 	for (const pkg of ["dsh-notify", "dsh-context-guard", "dsh-qq-notify"]) {
 		// 用 createRequire 从包目录解析（尊重 exports）
-		const req = createRequire(new URL(`packages/${pkg}/lib/index.js`, import.meta.url));
+		const req = createRequire(
+			new URL(`packages/${pkg}/lib/index.js`, import.meta.url),
+		);
 		try {
 			req.resolve("@deepseek-ai/schemastery");
 		} catch {
