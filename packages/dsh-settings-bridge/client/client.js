@@ -190,6 +190,7 @@
 							namespace: entry.namespace,
 							title: entry.title,
 							description: entry.description,
+							fields: Array.isArray(entry.fields) ? entry.fields : null,
 							save: (section) => this.save(section),
 							reload: () => this.reload(),
 						};
@@ -256,6 +257,287 @@
 				background: "var(--dsw-alias-button-info-fill, #3964fe)",
 				color: "#fff",
 			};
+
+			const inputStyle = {
+				width: "100%",
+				fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+				fontSize: "12px",
+				lineHeight: "1.5",
+				background: "var(--dsw-alias-bg-layer-1, #fff)",
+				color: "var(--dsw-alias-label-primary, #111)",
+				border: "1px solid var(--dsw-alias-border-l2, rgba(0,0,0,.12))",
+				borderRadius: "8px",
+				padding: "6px 10px",
+				boxSizing: "border-box",
+			};
+
+			const fieldRowStyle = {
+				display: "flex",
+				flexDirection: "column",
+				gap: "4px",
+			};
+
+			const fieldLabelStyle = {
+				fontSize: "12px",
+				fontWeight: 600,
+				color: "var(--dsw-alias-label-secondary, #444)",
+			};
+
+			const fieldHintStyle = {
+				fontSize: "11px",
+				color: "var(--dsw-alias-label-tertiary, #666)",
+				margin: 0,
+			};
+
+			function valueToFieldText(value, field) {
+				if (value === undefined || value === null) return "";
+				if (field.type === "list")
+					return Array.isArray(value) ? value.join(", ") : String(value);
+				if (field.type === "dict") {
+					try {
+						return JSON.stringify(value ?? {}, null, 2);
+					} catch {
+						return "";
+					}
+				}
+				if (field.type === "boolean") return Boolean(value);
+				return String(value);
+			}
+
+			function parseFieldText(text, field) {
+				if (field.type === "boolean") return Boolean(text);
+				if (field.type === "number") {
+					if (String(text).trim() === "") return undefined;
+					const number = Number(text);
+					if (!Number.isFinite(number)) return undefined;
+					return number;
+				}
+				if (field.type === "list") {
+					if (String(text).trim() === "") return [];
+					return String(text)
+						.split(/[,，\s\n]+/)
+						.map((item) => item.trim())
+						.filter(Boolean);
+				}
+				if (field.type === "dict") {
+					if (String(text).trim() === "") return {};
+					try {
+						return JSON.parse(text);
+					} catch {
+						throw new Error("invalid json");
+					}
+				}
+				return String(text);
+			}
+
+			function PluginSettingsFieldsCard(props) {
+				const { t } = props;
+				const state = props.usePluginSettingsJson((snapshot) => snapshot);
+				const fields = Array.isArray(props.fields) ? props.fields : [];
+				const [form, setForm] = react.useState(null);
+				const [error, setError] = react.useState(null);
+
+				react.useEffect(() => {
+					if (form === null && state.value !== undefined) {
+						const initial = {};
+						for (const field of fields)
+							initial[field.key] = valueToFieldText(
+								state.value?.[field.key],
+								field,
+							);
+						setForm(initial);
+					}
+				}, [state.value, form, fields]);
+
+				if (!state.available) return null;
+
+				const title = props.title ?? props.namespace;
+				const description = props.description ?? "";
+				const disabled = !state.writable || state.saving;
+
+				if (!state.exposed) {
+					return react.createElement(
+						"li",
+						{
+							style: {
+								padding: "10px 14px",
+								color: "var(--dsw-alias-state-warn-primary, #b45309)",
+							},
+						},
+						react.createElement("div", { style: { fontWeight: 600 } }, title),
+						react.createElement(
+							"p",
+							{ style: { fontSize: "12px", margin: "6px 0 0" } },
+							t("notExposed"),
+						),
+					);
+				}
+
+				const updateField = (key, value) =>
+					setForm((previous) => ({ ...(previous ?? {}), [key]: value }));
+
+				const renderField = (field) => {
+					const current = form?.[field.key] ?? "";
+					const hint = field.hint
+						? react.createElement("p", { style: fieldHintStyle }, field.hint)
+						: null;
+					if (field.type === "boolean") {
+						return react.createElement(
+							"div",
+							{ key: field.key, style: fieldRowStyle },
+							react.createElement(
+								"label",
+								{
+									style: {
+										display: "flex",
+										alignItems: "center",
+										gap: "8px",
+										fontSize: "13px",
+									},
+								},
+								react.createElement("input", {
+									type: "checkbox",
+									checked: Boolean(current),
+									disabled,
+									onChange: (event) =>
+										updateField(field.key, event.target.checked),
+								}),
+								field.label,
+							),
+							hint,
+						);
+					}
+					if (field.type === "dict") {
+						return react.createElement(
+							"div",
+							{ key: field.key, style: fieldRowStyle },
+							react.createElement("span", { style: fieldLabelStyle }, field.label),
+							react.createElement("textarea", {
+								style: { ...inputStyle, minHeight: "96px", resize: "vertical" },
+								value: String(current),
+								disabled,
+								placeholder: field.placeholder ?? "{}",
+								onChange: (event) => updateField(field.key, event.target.value),
+							}),
+							hint,
+						);
+					}
+					return react.createElement(
+						"div",
+						{ key: field.key, style: fieldRowStyle },
+						react.createElement("span", { style: fieldLabelStyle }, field.label),
+						react.createElement("input", {
+							style: inputStyle,
+							value: String(current),
+							disabled,
+							type: field.type === "number" ? "number" : "text",
+							placeholder: field.placeholder ?? "",
+							onChange: (event) => updateField(field.key, event.target.value),
+						}),
+						hint,
+					);
+				};
+
+				const save = async () => {
+					setError(null);
+					const section = {};
+					for (const field of fields) {
+						let parsed;
+						try {
+							parsed = parseFieldText(form?.[field.key] ?? "", field);
+						} catch {
+							setError(`${field.label}: ${t("invalidJson")}`);
+							return;
+						}
+						if (parsed !== undefined) section[field.key] = parsed;
+					}
+					const ok = await props.save(section);
+					if (!ok) setError(t("saveFailed"));
+				};
+
+				return react.createElement(
+					"li",
+					{
+						style: {
+							padding: "10px 14px",
+							display: "flex",
+							flexDirection: "column",
+							gap: "8px",
+						},
+					},
+					react.createElement("div", { style: { fontWeight: 600 } }, title),
+					description
+						? react.createElement(
+								"p",
+								{
+									style: {
+										fontSize: "12px",
+										margin: 0,
+										color: "var(--dsw-alias-label-tertiary, #666)",
+									},
+								},
+								description,
+							)
+						: null,
+					!state.writable
+						? react.createElement(
+								"p",
+								{
+									style: {
+										fontSize: "12px",
+										margin: 0,
+										color: "var(--dsw-alias-state-warn-primary, #b45309)",
+									},
+								},
+								t("readOnly"),
+							)
+						: null,
+					fields.map(renderField),
+					error
+						? react.createElement(
+								"p",
+								{
+									style: {
+										fontSize: "12px",
+										margin: 0,
+										color: "var(--dsw-alias-state-error-primary, #dc2626)",
+									},
+								},
+								error,
+							)
+						: null,
+					react.createElement(
+						"div",
+						{
+							style: {
+								display: "flex",
+								gap: "8px",
+								justifyContent: "flex-end",
+							},
+						},
+						react.createElement(
+							"button",
+							{
+								type: "button",
+								style: buttonStyle,
+								onClick: () => props.reload(),
+								disabled: state.saving,
+							},
+							t("reload"),
+						),
+						react.createElement(
+							"button",
+							{
+								type: "button",
+								style: saveButtonStyle,
+								onClick: save,
+								disabled: !state.writable || state.saving,
+							},
+							t(state.saving ? "saving" : "save"),
+						),
+					),
+				);
+			}
 
 			function PluginSettingsJsonCard(props) {
 				const { t } = props;
@@ -403,6 +685,9 @@
 					const binder = this.ctx.get("pluginSettings");
 					const scope = binder.bind(entry.namespace);
 					const controller = createCardController(scope, entry);
+					const Card = Array.isArray(entry.fields)
+						? PluginSettingsFieldsCard
+						: PluginSettingsJsonCard;
 					this.ctx.slots.inject("settings.plugin.item", () =>
 						this.ctx.slots.register(
 							{
@@ -412,7 +697,7 @@
 								locale: "dsh-settings-bridge",
 								inject: () => controller.inject(),
 							},
-							PluginSettingsJsonCard,
+							Card,
 						),
 					);
 				}
