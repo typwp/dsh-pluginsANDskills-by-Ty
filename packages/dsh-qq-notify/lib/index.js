@@ -377,6 +377,33 @@ export function apply(ctx, config = {}) {
 				if (data.turn !== undefined) toolTurns.set(key(sid, data.turn), false);
 			} else if (type === "tool/call") {
 				if (data.turn !== undefined) toolTurns.set(key(sid, data.turn), true);
+				// ask_user_question：GUI 提问无法在 QQ 端直接选择，发一条提示让用户回页面作答。
+				if (data.name === "ask_user_question") {
+					const questions = Array.isArray(data.arguments?.questions)
+						? data.arguments.questions
+						: [];
+					if (questions.length > 0) {
+						const lines = [
+							`❓ Agent 正在 GUI 向你提问，请回 Harness 页面选择或填写答案`,
+							`会话: ${sessionLabel(sid)}`,
+						];
+						for (const question of questions) {
+							if (!question || typeof question.question !== "string") continue;
+							if (question.header) lines.push("", `【${question.header}】`);
+							lines.push(question.question);
+							const options = Array.isArray(question.options)
+								? question.options
+									.map((option) => option?.label)
+									.filter(Boolean)
+								: [];
+							if (options.length > 0)
+								lines.push(`选项: ${options.join(" / ")}`);
+							if (question.multi_select === true)
+								lines.push("（可多选）");
+						}
+						send(lines.join("\n"));
+					}
+				}
 			} else if (cfg.notifyComplete && type === "turn/end") {
 				const k = key(sid, data.turn);
 				const hasTool = toolTurns.get(k) === true;
