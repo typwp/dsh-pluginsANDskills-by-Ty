@@ -1,0 +1,5 @@
+---
+# dsh-settings-bridge bundle patch: mount the generic settings bridge.
+- insert:
+    - id: dsh-settings-bridge
+      name: dsh-settings-bridge

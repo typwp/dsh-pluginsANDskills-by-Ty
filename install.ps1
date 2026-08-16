@@ -1,7 +1,7 @@
-﻿# dsh-plugins 一键部署到 ~/.dsh/plugins/
+# dsh-plugins 一键部署到 ~/.dsh/plugins/
 #
 # 用法：
-#   PowerShell:  .\install.ps1 [-Only notify|context-guard|qq-notify] [-SkipNpmInstall] [-PluginsRoot <path>]
+#   PowerShell:  .\install.ps1 [-Only notify|context-guard|qq-notify|settings-bridge] [-SkipNpmInstall] [-PluginsRoot <path>]
 #
 # 做什么：
 #   1. 把 packages/<name> 复制到 $HOME/.dsh/plugins/<name>（覆盖前自动备份 .bak）；
@@ -12,7 +12,7 @@
 # -PluginsRoot 可指定插件安装根（默认 ~/.dsh/plugins；测试/自定义 profile 用）。
 
 param(
-  [ValidateSet('', 'notify', 'context-guard', 'qq-notify')]
+  [ValidateSet('', 'notify', 'context-guard', 'qq-notify', 'settings-bridge')]
   [string]$Only = '',
   [switch]$SkipNpmInstall,
   [string]$PluginsRoot = ''
@@ -25,7 +25,7 @@ if ($PluginsRoot) {
 } else {
   $pluginsRoot = Join-Path $HOME '.dsh\plugins'
 }
-$names = if ($Only) { @($Only) } else { @('dsh-notify', 'dsh-context-guard', 'dsh-qq-notify') }
+$names = if ($Only) { @($Only) } else { @('dsh-notify', 'dsh-context-guard', 'dsh-qq-notify', 'dsh-settings-bridge') }
 
 if (!(Test-Path $pluginsRoot)) {
   Write-Host "❌ $pluginsRoot 不存在，请先确认 DSH 已安装" -ForegroundColor Red

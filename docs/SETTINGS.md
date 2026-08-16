@@ -4,6 +4,8 @@
 
 ## 方法一：Web UI 设置页（推荐）
 
+> 前提：已安装 `dsh-settings-bridge`（本仓库通用设置桥），否则 rc.6 不会把第三方命名空间暴露给设置页。桥的 allowlist 同样读取 `web_settings_namespaces`，缺省时自动放行 dsh-notify / context-guard / qq-notify。
+
 1. 打开 DSH Web UI（默认 `http://127.0.0.1:8080`）；
 2. 进入 **设置** → **插件配置**（或侧边栏的「设置 / Settings」入口）；
 3. 左侧选择对应插件命名空间：

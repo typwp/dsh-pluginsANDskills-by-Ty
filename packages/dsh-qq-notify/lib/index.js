@@ -72,10 +72,16 @@ export function apply(ctx, config = {}) {
 		if (!list.length) return true;
 		return list.some((x) => sid === x || sid.startsWith(x));
 	}
-	// 会话显示名：sessionNames[id] 优先，其次短 id
+	// 会话显示名：sessionNames[id] 优先；否则展示短 id。
+	// 注意 DSH 的 session id 本身就带 "session-" 前缀，不能再套一层。
 	function sessionLabel(sid) {
-		const name = cfg.sessionNames?.[sid] ?? cfg.sessionNames?.[sid.slice(0, 8)];
-		return `session-${name ?? sid.slice(0, 8)}`;
+		const id = sid ?? "?";
+		const name = cfg.sessionNames?.[id] ?? cfg.sessionNames?.[id.slice(0, 8)];
+		if (name) return `session-${name}`;
+		if (id === "?") return id;
+		if (id.startsWith("session-"))
+			return id.length > 20 ? `${id.slice(0, 20)}…` : id;
+		return `session-${id.slice(0, 12)}`;
 	}
 
 	async function send(message) {

@@ -1,7 +1,7 @@
 {
-  "name": "dsh-qq-notify",
-  "version": "0.2.0",
-  "description": "QQ 适配层（可选）：订阅 dsh-notify 的消息转发到 QQ；保留审批双向、会话监控/命名、/hn 命令。不装此插件不影响 dsh-context-guard 等核心功能。",
+  "name": "dsh-settings-bridge",
+  "version": "0.1.0",
+  "description": "通用第三方插件设置桥：让任意已注册的 settings 命名空间都能出现在 Web UI 设置页，并提供 JSON 配置卡片。",
   "type": "module",
   "main": "lib/index.js",
   "license": "MIT",
@@ -26,16 +26,5 @@
     "cordis.patch.yml",
     "README.md",
     "LICENSE"
-  ],
-  "dependencies": {
-    "@deepseek-ai/schemastery": "3.18.1"
-  },
-  "peerDependencies": {
-    "dsh-notify": ">=0.1.0"
-  },
-  "peerDependenciesMeta": {
-    "dsh-notify": {
-      "optional": true
-    }
-  }
+  ]
 }

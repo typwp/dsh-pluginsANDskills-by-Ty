@@ -17,8 +17,18 @@
 		factory: () => ({
 			name: "dsh-notify-client",
 			inject: [],
-			apply: () => {
+			apply: (ctx) => {
 				startToastLoop();
+				const cards = ctx.get?.("pluginSettingsCards");
+				if (cards) {
+					cards.registerCard({
+						id: "plugin-settings-dsh-notify",
+						namespace: "dsh-notify",
+						title: "通用通知",
+						description: "toast / webhook / 文件 / 日志通道设置（JSON）。",
+						order: 100,
+					});
+				}
 			},
 		}),
 	});
