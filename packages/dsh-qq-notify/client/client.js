@@ -107,6 +107,15 @@
 					const pluginSettings = ctx.get("pluginSettings");
 					if (!pluginSettings?.bind) return false;
 					const scope = pluginSettings.bind("qq-notify");
+					// 工作区会话列表用它决定是否在标题右侧显示 👁 监控标记。
+					window.__DSH_SESSION_MONITORED__ = (sid) => {
+						const snap = scope.getSnapshot();
+						const value = snap?.value ?? {};
+						const monitored = Array.isArray(value.monitoredSessions)
+							? value.monitoredSessions
+							: [];
+						return monitored.some((x) => sid === x || sid.startsWith(x));
+					};
 					window.__DSH_SESSION_MENU_ITEMS__ = (node) => {
 						const sid = node?.id ?? "";
 						if (!sid) return [];
