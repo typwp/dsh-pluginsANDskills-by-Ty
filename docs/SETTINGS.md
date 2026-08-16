@@ -21,6 +21,36 @@
 
 > 若设置页未出现对应命名空间：请确认插件已部署（见根 README 安装章节）并**重启 harness**。
 
+### 遇到「当前 DSH 版本未向设置页暴露本插件的配置命名空间」怎么办
+
+这条提示来自 dsh-web-ui 全家桶的设置卡片（宠物 / live-stats / task-board 等）。原因不是插件坏了，而是它的配置命名空间没有被放行：
+
+- rc.6 官方 settings 白名单是硬编码的，不认第三方命名空间；
+- dsh-web-ui 的设置桥会读取 `~/.dsh/settings.yaml` 里的 `web_settings_namespaces` 作为放行名单。
+
+修复：把需要配置的全家桶命名空间加进 `web_settings_namespaces`，保存后刷新浏览器即可（桥会每次请求时重读该文件，无需重启）：
+
+```yaml
+web_settings_namespaces:
+  - pet
+  - live-stats
+  - task-board
+  - remote-web-ui
+  - dsh-ssh
+  - skin-background
+```
+
+命名空间对应关系：
+
+| 命名空间 | 插件 |
+| --- | --- |
+| `pet` | 宠物 |
+| `live-stats` | 实时令牌估算 |
+| `task-board` | 任务板 |
+| `remote-web-ui` | 远程 Web UI |
+| `dsh-ssh` | SSH |
+| `skin-background` | 皮肤中心 |
+
 ## 方法二：QQ 命令（仅 dsh-qq-notify）
 
 配置了 `decisionsFilePath`（bridge 决策文件）后，可在 QQ 私聊向机器人发送 `/hn` 命令调整：
