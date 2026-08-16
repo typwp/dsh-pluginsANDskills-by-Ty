@@ -147,6 +147,8 @@
 				let failed = false;
 				const store = createSnapshotStore(projection());
 				scope.subscribe(() => publish());
+				// 注册后立刻拉取一次桥接描述，否则卡片会一直停在 loading 而不渲染。
+				void scope.load();
 				function projection() {
 					const snapshot = scope.getSnapshot();
 					return {

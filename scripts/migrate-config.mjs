@@ -209,6 +209,9 @@ export function main(argv) {
 }
 
 // 直接运行时走 CLI（pathToFileURL 规范化：处理空格/盘符/反斜杠，Windows 安全）
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+	process.argv[1] &&
+	import.meta.url === pathToFileURL(process.argv[1]).href
+) {
 	process.exit(main(process.argv.slice(2)));
 }
