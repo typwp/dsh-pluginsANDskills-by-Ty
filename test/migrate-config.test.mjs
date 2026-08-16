@@ -33,7 +33,7 @@ console.log("== 迁移脚本纯函数测试 ==");
 		"---\n- insert:\n    - id: qq-notify\n      name: dsh-qq-notify\n";
 	const r = migrateText(old, newT, "dsh-qq-notify");
 	check("正常迁移 → ok", r.ok === true);
-	check("保留 targetQq", r.text.includes("targetQq: 10001"), r.text);
+	check("保留 targetQq", r.text.includes("targetQq: '10001'"), r.text);
 	check(
 		"保留 bridgeUrl 带引号",
 		r.text.includes("bridgeUrl: 'http://localhost:3456/send'"),

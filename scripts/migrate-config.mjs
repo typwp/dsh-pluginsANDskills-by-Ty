@@ -117,17 +117,26 @@ function injectConfig(text, targetName, cfg) {
 	const kvIndent = " ".repeat(nameIndent + 2);
 	const block = [`${cfgIndent}config:`];
 	for (const [k, v] of Object.entries(cfg)) {
-		block.push(`${kvIndent}${k}: ${yamlScalar(v)}`);
+		block.push(`${kvIndent}${k}: ${yamlScalar(v, k)}`);
 	}
 	lines.splice(nameIdx + 1, 0, ...block);
 	return lines.join("\n");
 }
 
-/** 把字符串值转成 YAML 标量（布尔/数字/数组不引号，其余加单引号）。 */
-function yamlScalar(val) {
+/** schema 中明确为 number 的键：允许按数字输出；其余一律加单引号（防止 QQ 号这类数字串被 YAML 读成 number）。 */
+const NUMBER_KEYS = new Set([
+	"modelLimit",
+	"defaultOutputBudget",
+	"handoverThreshold",
+	"approvalTimeoutMs",
+	"toastBufferSize",
+]);
+
+/** 把字符串值转成 YAML 标量（布尔/数组/字典不引号，number 键按数字输出，其余强制单引号字符串）。 */
+function yamlScalar(val, key) {
 	const s = String(val).trim();
 	if (/^(true|false)$/i.test(s)) return s.toLowerCase();
-	if (/^-?\d+(\.\d+)?$/.test(s)) return s;
+	if (NUMBER_KEYS.has(key) && /^-?\d+(\.\d+)?$/.test(s)) return s;
 	if (/^\[.*\]$/.test(s) || /^\{.*\}$/.test(s)) return s; // 数组/对象保持原样
 	return `'${s.replace(/'/g, "''")}'`;
 }

@@ -19,8 +19,8 @@ export const inject = ["settings"];
 
 export function apply(ctx, config = {}) {
 	const base = {
-		targetQq: config.targetQq ?? "",
-		bridgeUrl: config.bridgeUrl ?? "",
+		targetQq: String(config.targetQq ?? ""),
+		bridgeUrl: String(config.bridgeUrl ?? ""),
 		notifyApproval: config.notifyApproval ?? true,
 		notifyComplete: config.notifyComplete ?? true,
 		notifyOnToolOnly: config.notifyOnToolOnly ?? true,
