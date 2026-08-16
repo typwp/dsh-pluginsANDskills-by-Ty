@@ -411,7 +411,11 @@
 						return react.createElement(
 							"div",
 							{ key: field.key, style: fieldRowStyle },
-							react.createElement("span", { style: fieldLabelStyle }, field.label),
+							react.createElement(
+								"span",
+								{ style: fieldLabelStyle },
+								field.label,
+							),
 							react.createElement("textarea", {
 								style: { ...inputStyle, minHeight: "96px", resize: "vertical" },
 								value: String(current),
@@ -425,7 +429,11 @@
 					return react.createElement(
 						"div",
 						{ key: field.key, style: fieldRowStyle },
-						react.createElement("span", { style: fieldLabelStyle }, field.label),
+						react.createElement(
+							"span",
+							{ style: fieldLabelStyle },
+							field.label,
+						),
 						react.createElement("input", {
 							style: inputStyle,
 							value: String(current),
