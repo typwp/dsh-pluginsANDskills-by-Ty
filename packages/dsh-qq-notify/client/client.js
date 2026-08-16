@@ -67,9 +67,9 @@
 							},
 							{
 								key: "monitoredSessions",
-								label: "监控会话（空=全部）",
+								label: "监控会话（空=不监控任何会话）",
 								type: "list",
-								placeholder: "多个会话 ID 用逗号分隔，留空表示全部",
+								placeholder: "多个会话 ID 用逗号分隔；留空表示默认不打扰",
 							},
 							{
 								key: "sessionNames",
@@ -115,9 +115,9 @@
 						const monitored = Array.isArray(value.monitoredSessions)
 							? value.monitoredSessions
 							: [];
-						const active =
-							monitored.length === 0 ||
-							monitored.some((x) => sid === x || sid.startsWith(x));
+						const active = monitored.some(
+							(x) => sid === x || sid.startsWith(x),
+						);
 						return [
 							{
 								id: "qq-monitor-toggle",
@@ -140,25 +140,12 @@
 							const monitored = Array.isArray(value.monitoredSessions)
 								? value.monitoredSessions
 								: [];
-							const active =
-								monitored.length === 0 ||
-								monitored.some((x) => sid === x || sid.startsWith(x));
-							let next;
-							if (active) {
-								if (monitored.length === 0) {
-									const sessions = ctx.get("sessions");
-									const allIds = Object.keys(
-										sessions?.list?.getSnapshot?.()?.byId ?? {},
-									);
-									next = allIds.filter((x) => x !== sid);
-								} else {
-									next = monitored.filter(
-										(x) => x !== sid && !sid.startsWith(x),
-									);
-								}
-							} else {
-								next = [...monitored, sid];
-							}
+							const active = monitored.some(
+								(x) => sid === x || sid.startsWith(x),
+							);
+							const next = active
+								? monitored.filter((x) => x !== sid && !sid.startsWith(x))
+								: [...monitored, sid];
 							await scope.mutate([
 								{ op: "set", path: ["monitoredSessions"], value: next },
 							]);

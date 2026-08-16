@@ -66,10 +66,9 @@ export function apply(ctx, config = {}) {
 	let pollTimer = null;
 	let pollPath = "";
 
-	// 会话是否被监控（空列表=监控全部；支持短 id 前缀匹配）
+	// 会话是否被监控（默认不监控任何会话；用户显式添加后才通知；支持短 id 前缀匹配）
 	function isMonitored(sid) {
 		const list = cfg.monitoredSessions ?? [];
-		if (!list.length) return true;
 		return list.some((x) => sid === x || sid.startsWith(x));
 	}
 	// 会话显示名：sessionNames[id] 优先；否则展示短 id。
@@ -118,7 +117,7 @@ export function apply(ctx, config = {}) {
 		const lines = Object.entries(cfg)
 			.map(([k, v]) => {
 				if (k === "monitoredSessions")
-					return `  ${label[k]}: ${(v ?? []).length ? v.join(", ") : "(全部)"}`;
+					return `  ${label[k]}: ${(v ?? []).length ? v.join(", ") : "(无)"}`;
 				if (k === "sessionNames") {
 					const pairs = Object.entries(v ?? {});
 					return `  ${label[k]}: ${pairs.length ? pairs.map(([i, n]) => `${i}=${n}`).join(", ") : "(无)"}`;
@@ -203,7 +202,7 @@ export function apply(ctx, config = {}) {
 								ctx.settings.mutate("qq-notify", [
 									{ op: "set", path: ["monitoredSessions"], value: [] },
 								]);
-								send(`✅ 已恢复监控全部会话`);
+								send(`✅ 已清空监控列表，QQ 通知默认不再打扰任何会话`);
 							} catch (e) {
 								send(`❌ 监控设置失败: ${e.message}`);
 							}
@@ -393,13 +392,12 @@ export function apply(ctx, config = {}) {
 							lines.push(question.question);
 							const options = Array.isArray(question.options)
 								? question.options
-									.map((option) => option?.label)
-									.filter(Boolean)
+										.map((option) => option?.label)
+										.filter(Boolean)
 								: [];
 							if (options.length > 0)
 								lines.push(`选项: ${options.join(" / ")}`);
-							if (question.multi_select === true)
-								lines.push("（可多选）");
+							if (question.multi_select === true) lines.push("（可多选）");
 						}
 						send(lines.join("\n"));
 					}
